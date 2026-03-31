@@ -214,31 +214,23 @@ interface WantsListProps {
 export function WantsList({ cards = [], onQtyChange, onDelete, onClearAll }: WantsListProps) {
   const [copied, setCopied] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
+
   useEffect(() => {
     setIsMounted(true)
   }, [])
 
-  // --- BLOQUE DE CÁLCULOS CRÍTICO ---
-  const {
-    totalCards,
-    totalValue,
-    unicornDeal,
-    cardmarketTotal,
-    totalSavings,
-    totalSavingsPercent,
-    mostExpensiveCardUrl
-  } = useMemo(() => {
-    // A. Sumamos todo el array de golpe
+  // MOTOR DE CÁLCULOS UNIFICADO: Si cards cambia, todo esto se refresca
+  const stats = useMemo(() => {
     const tCards = cards.reduce((acc, c) => acc + (Number(c.qty) || 0), 0);
     const tValue = cards.reduce((acc, c) => acc + ((Number(c.price) || 0) * (Number(c.qty) || 0)), 0);
 
-    // B. Calculamos lógica de vendedor y ahorros usando esos totales
     const uDeal = calculateBestDeal(cards);
+    const mUrl = getMostExpensiveCardUrl(cards);
+
     const baseSavingsPercent = 10;
     const cktTotal = tValue / (1 - baseSavingsPercent / 100);
     const tSavings = (cktTotal - tValue) + (uDeal.shippingSaved || 0);
     const tSavingsPercent = tValue > 0 ? Math.round((tSavings / (tValue + tSavings)) * 100) : 0;
-    const mUrl = getMostExpensiveCardUrl(cards);
 
     return {
       totalCards: tCards,
@@ -249,10 +241,8 @@ export function WantsList({ cards = [], onQtyChange, onDelete, onClearAll }: Wan
       totalSavingsPercent: tSavingsPercent,
       mostExpensiveCardUrl: mUrl
     };
-  }, [cards]); // Si 'cards' cambia, TODO lo de arriba se ejecuta de nuevo
-  // --- FIN DEL BLOQUE ---
+  }, [cards]);
 
-  // Handle export to Cardmarket
   const handleExport = async () => {
     const exportText = generateCardmarketExport(cards)
     try {
@@ -260,18 +250,14 @@ export function WantsList({ cards = [], onQtyChange, onDelete, onClearAll }: Wan
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      // Fallback: create and download a text file
       const blob = new Blob([exportText], { type: "text/plain" })
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
-      a.href = url
-      a.download = "cardmarket-import.txt"
-      a.click()
+      a.href = url; a.download = "cardmarket-import.txt"; a.click()
       URL.revokeObjectURL(url)
     }
   }
 
-  // Si no ha montado en el cliente, no mostramos nada (o un spinner) para evitar el error #418
   if (!isMounted) return null
 
   return (
@@ -279,7 +265,9 @@ export function WantsList({ cards = [], onQtyChange, onDelete, onClearAll }: Wan
       <div className="flex items-center justify-between">
         <h2 className="text-base font-bold text-foreground flex items-center gap-2">
           My Live Wants List
-          <Badge className="bg-primary/10 text-primary border-primary/20 text-xs">{cards.length} cards</Badge>
+          <Badge className="bg-primary/10 text-primary border-primary/20 text-xs">
+            {cards.length} {cards.length === 1 ? 'card' : 'cards'}
+          </Badge>
         </h2>
         <Button variant="ghost" size="sm" onClick={onClearAll} className="text-xs text-primary hover:text-primary/80">
           Clear All
@@ -293,7 +281,7 @@ export function WantsList({ cards = [], onQtyChange, onDelete, onClearAll }: Wan
               No cards in your wants list yet. Scan or search to add some!
             </div>
           ) : (
-            <div>
+            <div className="divide-y divide-border">
               {cards.map(card => (
                 <CardRow key={card.id} card={card} onQtyChange={onQtyChange} onDelete={onDelete} />
               ))}
@@ -302,168 +290,71 @@ export function WantsList({ cards = [], onQtyChange, onDelete, onClearAll }: Wan
         </CardContent>
       </Card>
 
-      {/* Unicorn Seller Alert */}
-      {unicornDeal.hasUnicorn && (
-        <Card className="border-primary/40 bg-primary/5 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-500">
-          <CardContent className="p-4">
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary/20">
-                <Store className="h-5 w-5 text-primary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-bold text-primary">Unicorn Seller Found!</span>
-                  <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px]">
-                    {unicornDeal.cardsWithSeller}/{unicornDeal.totalCards} cards
-                  </Badge>
-                </div>
-                <p className="text-sm text-foreground font-semibold mt-0.5">{unicornDeal.sellerName}</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Has {Math.round((unicornDeal.cardsWithSeller / unicornDeal.totalCards) * 100)}% of your wishlist in stock
-                </p>
-              </div>
-              <div className="text-right flex-shrink-0">
-                <div className="flex items-center gap-1 text-savings">
-                  <Truck className="h-4 w-4" />
-                  <span className="text-sm font-bold">
-                    €{unicornDeal.shippingSaved.toFixed(2)} saved
-                  </span>
-                </div>
-                <p className="text-[10px] text-muted-foreground mt-0.5">
-                  {unicornDeal.shipmentsAvoided} shipments avoided
-                </p>
-              </div>
+      {/* Alerta de Vendedor Unicornio */}
+      {stats.unicornDeal.hasUnicorn && cards.length > 0 && (
+        <Card className="border-primary/40 bg-primary/5 animate-in fade-in slide-in-from-bottom-2">
+          <CardContent className="p-4 flex items-start gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/20 text-primary">
+              <Store className="h-5 w-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <span className="text-sm font-bold text-primary">Unicorn Seller Found!</span>
+              <p className="text-sm text-foreground font-semibold truncate">{stats.unicornDeal.sellerName}</p>
+            </div>
+            <div className="text-right text-savings">
+              <span className="text-sm font-bold">€{stats.unicornDeal.shippingSaved.toFixed(2)} saved</span>
+              <p className="text-[10px] text-muted-foreground">{stats.unicornDeal.shipmentsAvoided} shipments avoided</p>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Enhanced Summary with Progress Bar */}
+      {/* SECCIÓN RESUMEN ACTUALIZABLE */}
       {cards.length > 0 && (
-        <Card className="border-savings/30 bg-savings/5 overflow-hidden">
+        <Card className="border-savings/30 bg-savings/5 overflow-hidden shadow-sm">
           <CardHeader className="pb-2 pt-4 px-4">
             <CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
-              Summary
-              <Badge className="bg-savings/20 text-savings border-savings/30 text-[10px]">
-                {totalSavingsPercent}% OFF
-              </Badge>
+              Summary <Badge className="bg-savings/20 text-savings border-savings/30">{stats.totalSavingsPercent}% OFF</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4 space-y-4">
             <div className="grid grid-cols-2 gap-2 text-sm">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Package className="h-3.5 w-3.5" />
-                <span>Total Cards</span>
-              </div>
-              <span className="text-right font-semibold text-foreground">{totalCards}</span>
-
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <TrendingUp className="h-3.5 w-3.5" />
-                <span>Our Price</span>
-              </div>
-              <span className="text-right font-semibold text-foreground">
-                €{totalValue.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <span className="text-muted-foreground">Total Cards</span>
+              <span className="text-right font-bold tabular-nums">{stats.totalCards}</span>
+              <span className="text-muted-foreground">Our Price</span>
+              <span className="text-right font-bold text-lg tabular-nums">
+                €{stats.totalValue.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
-
-              {unicornDeal.hasUnicorn && (
-                <>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Truck className="h-3.5 w-3.5" />
-                    <span>Shipping Saved</span>
-                  </div>
-                  <span className="text-right font-semibold text-savings">
-                    +€{unicornDeal.shippingSaved.toFixed(2)}
-                  </span>
-                </>
-              )}
             </div>
 
-            {/* Savings Progress Bar */}
-            <div className="space-y-2 pt-2 border-t border-savings/20">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Cardmarket Avg</span>
-                <span className="text-muted-foreground line-through">
-                  €{(cardmarketTotal + unicornDeal.shippingSaved).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-              </div>
-
-              <div className="relative">
-                <Progress
-                  value={100 - totalSavingsPercent}
-                  className="h-3 bg-secondary [&>[data-slot=indicator]]:bg-gradient-to-r [&>[data-slot=indicator]]:from-savings [&>[data-slot=indicator]]:to-primary"
-                />
-                <div
-                  className="absolute right-0 top-0 h-3 bg-savings/30 rounded-r-full"
-                  style={{ width: `${totalSavingsPercent}%` }}
-                />
-              </div>
-
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-savings font-medium">Your Total Savings</span>
-                <span className="text-savings font-bold">
-                  €{totalSavings.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-              </div>
-            </div>
-
-            {/* Big Savings Highlight */}
-            <div className="flex items-center justify-between rounded-xl border border-savings/40 bg-gradient-to-r from-savings/15 to-savings/5 px-4 py-4">
+            <div className="flex items-center justify-between rounded-xl border border-savings/40 bg-savings/10 px-4 py-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-savings/20">
+                <div className="bg-savings/20 p-2 rounded-full">
                   <Zap className="h-5 w-5 text-savings" />
                 </div>
                 <div>
-                  <span className="text-xs text-savings/80 font-medium">ManaSaver Optimization</span>
-                  <p className="text-lg font-bold text-savings">You Save {totalSavingsPercent}%</p>
+                  <span className="text-xs text-savings/80 font-medium uppercase tracking-tight">You Save</span>
+                  <p className="text-xl font-bold text-savings">{stats.totalSavingsPercent}%</p>
                 </div>
               </div>
               <div className="text-right">
-                <span className="text-2xl font-extrabold text-savings">
-                  €{totalSavings.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                <span className="text-2xl font-extrabold text-savings tabular-nums">
+                  €{stats.totalSavings.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
-                <p className="text-[11px] text-savings/70">vs Cardmarket Avg</p>
               </div>
             </div>
 
-            {/* Export Button */}
-            <Button
-              onClick={handleExport}
-              variant="outline"
-              className="w-full gap-2 border-primary/30 text-primary hover:bg-primary/10 hover:text-primary"
-            >
-              {copied ? (
-                <>
-                  <Check className="h-4 w-4" />
-                  Copied to Clipboard!
-                </>
-              ) : (
-                <>
-                  <Download className="h-4 w-4" />
-                  Export for Cardmarket
-                </>
-              )}
+            <Button onClick={handleExport} variant="outline" className="w-full gap-2 border-primary/30 text-primary hover:bg-primary/5">
+              {copied ? <Check className="h-4 w-4" /> : <Download className="h-4 w-4" />}
+              {copied ? "Copied to Clipboard!" : "Export for Cardmarket"}
             </Button>
 
-            {/* Golden Buy Optimized Lot Button */}
-            {mostExpensiveCardUrl ? (
-              <a
-                href={mostExpensiveCardUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-bold transition-all duration-200 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-amber-950 hover:from-amber-400 hover:via-yellow-300 hover:to-amber-400 hover:scale-[1.02] shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40"
-              >
-                <ShoppingCart className="h-5 w-5" />
-                Buy Optimized Lot on Cardmarket
-                <ExternalLink className="h-4 w-4" />
+            {stats.mostExpensiveCardUrl && (
+              <a href={stats.mostExpensiveCardUrl} target="_blank" rel="noopener noreferrer"
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-bold bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-amber-950 hover:brightness-110 transition-all shadow-md shadow-amber-500/10">
+                <ShoppingCart className="h-5 w-5" /> Buy Optimized Lot
+                <ExternalLink className="h-3.5 w-3.5 opacity-50" />
               </a>
-            ) : (
-              <Button
-                disabled
-                className="w-full h-12 gap-2 bg-gradient-to-r from-amber-500/50 via-yellow-400/50 to-amber-500/50 text-amber-950/50 cursor-not-allowed"
-              >
-                <ShoppingCart className="h-5 w-5" />
-                Add cards with Cardmarket links to buy
-              </Button>
             )}
           </CardContent>
         </Card>
