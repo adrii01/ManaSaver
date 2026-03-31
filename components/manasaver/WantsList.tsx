@@ -218,34 +218,39 @@ export function WantsList({ cards = [], onQtyChange, onDelete, onClearAll }: Wan
     setIsMounted(true)
   }, [])
 
-  const { totalCards, totalValue } = useMemo(() => {
-    let tCards = 0;
-    let tValue = 0;
+  // --- BLOQUE DE CÁLCULOS CRÍTICO ---
+  const {
+    totalCards,
+    totalValue,
+    unicornDeal,
+    cardmarketTotal,
+    totalSavings,
+    totalSavingsPercent,
+    mostExpensiveCardUrl
+  } = useMemo(() => {
+    // A. Sumamos todo el array de golpe
+    const tCards = cards.reduce((acc, c) => acc + (Number(c.qty) || 0), 0);
+    const tValue = cards.reduce((acc, c) => acc + ((Number(c.price) || 0) * (Number(c.qty) || 0)), 0);
 
-    cards.forEach(c => {
-      const q = Number(c.qty) || 0;
-      const p = Number(c.price) || 0;
-      tCards += q;
-      tValue += (p * q);
-    });
+    // B. Calculamos lógica de vendedor y ahorros usando esos totales
+    const uDeal = calculateBestDeal(cards);
+    const baseSavingsPercent = 10;
+    const cktTotal = tValue / (1 - baseSavingsPercent / 100);
+    const tSavings = (cktTotal - tValue) + (uDeal.shippingSaved || 0);
+    const tSavingsPercent = tValue > 0 ? Math.round((tSavings / (tValue + tSavings)) * 100) : 0;
+    const mUrl = getMostExpensiveCardUrl(cards);
 
-    return { totalCards: tCards, totalValue: tValue };
-  }, [cards]); // <--- ESTO es lo que obliga a actualizar
-
-  // Calculate unicorn seller deal
-  const unicornDeal = useMemo(() => calculateBestDeal(cards), [cards])
-
-  // Get URL for "Buy Optimized Lot" button (most expensive card)
-  const mostExpensiveCardUrl = useMemo(() => getMostExpensiveCardUrl(cards), [cards])
-
-  // Calculate savings: 10% base + shipping savings from unicorn
-  const baseSavingsPercent = 10
-  const cardmarketTotal = totalValue / (1 - baseSavingsPercent / 100)
-  const baseSavings = cardmarketTotal - totalValue
-  const totalSavings = baseSavings + unicornDeal.shippingSaved
-  const totalSavingsPercent = totalValue > 0
-    ? Math.round((totalSavings / (totalValue + totalSavings)) * 100)
-    : 0;
+    return {
+      totalCards: tCards,
+      totalValue: tValue,
+      unicornDeal: uDeal,
+      cardmarketTotal: cktTotal,
+      totalSavings: tSavings,
+      totalSavingsPercent: tSavingsPercent,
+      mostExpensiveCardUrl: mUrl
+    };
+  }, [cards]); // Si 'cards' cambia, TODO lo de arriba se ejecuta de nuevo
+  // --- FIN DEL BLOQUE ---
 
   // Handle export to Cardmarket
   const handleExport = async () => {
