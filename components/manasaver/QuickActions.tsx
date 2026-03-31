@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useRef, useEffect, useCallback } from "react"
-import { Camera, Search, Upload, FileText, X, Plus, Loader2, Sparkles, RefreshCw } from "lucide-react"
+import { useState, useRef, useCallback } from "react"
+import { Camera, Search, Upload, FileText, X, Plus, Loader2, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
@@ -33,7 +33,6 @@ export function QuickActions({ onAddCard }: QuickActionsProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [suggestions, setSuggestions] = useState<ScryfallCard[]>([])
   const [isSearching, setIsSearching] = useState(false)
-  const [isLoadingCard, setIsLoadingCard] = useState(false)
 
   // ESTADOS PARA CÁMARA Y OCR
   const [cameraOpen, setCameraOpen] = useState(false)
@@ -75,35 +74,36 @@ export function QuickActions({ onAddCard }: QuickActionsProps) {
     const video = videoRef.current
     const canvas = canvasRef.current
     const ctx = canvas.getContext("2d")
-    if (!ctx) return
+    if (!ctx) {
+      setIsProcessing(false)
+      return
+    }
 
-    // RECORTE DE PRECISIÓN: Enfocamos solo el 15% superior de la carta (donde está el nombre)
-    const sw = video.videoWidth * 0.7
-    const sh = video.videoHeight * 0.15
+    // Ajuste de la zona de captura
+    const sw = video.videoWidth * 0.8
+    const sh = video.videoHeight * 0.12
     const sx = (video.videoWidth - sw) / 2
-    const sy = video.videoHeight * 0.15 // Ajustado para capturar la franja del nombre
+    const sy = video.videoHeight * 0.12
 
     canvas.width = sw
     canvas.height = sh
     ctx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh)
 
     try {
-      const { data: { text } } = await Tesseract.recognize(canvas, 'eng')
-      // Limpiamos el texto para quedarnos solo con letras y espacios (evita símbolos raros)
-      const cleanedName = text.split('\n').join(' ').replace(/[^a-zA-Z ]/g, "").trim()
+      const result = await Tesseract.recognize(canvas, 'eng')
+
+      // USAMOS SOLO JOIN COMO PEDISTE:
+      // Convertimos las líneas en una sola frase y quitamos espacios sobrantes
+      const cleanedName = (result.data.text || "").split('\n').join(' ').trim()
 
       console.log("OCR Result:", cleanedName)
 
-      if (cleanedName.length > 3) {
+      if (cleanedName.length > 2) {
         const card = await searchCardByName(cleanedName)
         if (card) {
           setFoundCard(card)
           stopCamera()
-        } else {
-          alert(`No se encontró nada para: "${cleanedName}". Intenta enfocar mejor.`)
         }
-      } else {
-        alert("No he podido leer el nombre. Asegúrate de que haya buena luz.")
       }
     } catch (e) {
       console.error("Error en OCR:", e)
@@ -112,7 +112,7 @@ export function QuickActions({ onAddCard }: QuickActionsProps) {
     }
   }
 
-  // --- LÓGICA DE BÚSQUEDA ORIGINAL ---
+  // --- LÓGICA DE BÚSQUEDA ---
   const debouncedSearch = useDebouncedCallback(async (query: string) => {
     if (query.length < 2) { setSuggestions([]); return }
     setIsSearching(true)
@@ -127,16 +127,24 @@ export function QuickActions({ onAddCard }: QuickActionsProps) {
   }
 
   const handleAddCardInternal = useCallback((card: ScryfallCard) => {
+    // Evitamos el N/A buscando el mejor precio disponible (EUR > USD > 0)
+    const bestPrice = card.prices.eur
+      ? parseFloat(card.prices.eur)
+      : card.prices.usd
+        ? parseFloat(card.prices.usd)
+        : 0
+
     onAddCard({
       name: card.name,
-      set: card.set.toUpperCase(),
-      setFull: card.set_name,
-      price: card.prices.eur ? parseFloat(card.prices.eur) : 0,
+      set: (card.set || "UNK").toUpperCase(),
+      setFull: card.set_name || "Unknown Set",
+      price: bestPrice,
       rarity: mapRarity(card.rarity),
       manaColors: extractManaColors(card),
       imageUrl: getCardImageUrl(card, "small") || undefined,
       cardmarketUrl: card.purchase_uris?.cardmarket || undefined,
     })
+
     setSearchOpen(false)
     setSearchQuery("")
     setSuggestions([])
@@ -174,12 +182,10 @@ export function QuickActions({ onAddCard }: QuickActionsProps) {
         </div>
       </div>
 
-      {/* VISOR DE CÁMARA (Solo si está abierta) */}
+      {/* VISOR DE CÁMARA */}
       {cameraOpen && (
         <Card className="relative overflow-hidden aspect-[3/4] bg-black rounded-xl border-2 border-primary/50 animate-in fade-in duration-300">
           <video ref={videoRef} autoPlay playsInline className="absolute inset-0 w-full h-full object-cover" />
-
-          {/* Marco de enfoque para el nombre */}
           <div className="absolute inset-0 flex flex-col items-center justify-start pt-[15%]">
             <div className="w-[80%] h-14 border-2 border-yellow-400 rounded-md shadow-[0_0_0_9999px_rgba(0,0,0,0.6)] z-20 flex items-center justify-center">
               <span className="text-[10px] text-yellow-400 font-bold uppercase tracking-widest bg-black/50 px-2 py-0.5 rounded">
@@ -187,7 +193,6 @@ export function QuickActions({ onAddCard }: QuickActionsProps) {
               </span>
             </div>
           </div>
-
           <Button
             onClick={captureAndScan}
             disabled={isProcessing}
@@ -198,14 +203,16 @@ export function QuickActions({ onAddCard }: QuickActionsProps) {
         </Card>
       )}
 
-      {/* RESULTADO DEL ESCÁNER (Previsualización antes de añadir) */}
+      {/* RESULTADO ESCÁNER */}
       {foundCard && (
         <Card className="p-3 border-primary bg-card/50 backdrop-blur-sm animate-in zoom-in duration-200">
           <div className="flex gap-4 items-center">
             <img src={getCardImageUrl(foundCard, "small") || ""} alt={foundCard.name} className="h-20 rounded shadow-md" />
             <div className="flex-1">
               <h3 className="font-bold text-sm leading-tight">{foundCard.name}</h3>
-              <p className="text-xl font-black text-primary mt-1">{foundCard.prices.eur || foundCard.prices.usd}€</p>
+              <p className="text-xl font-black text-primary mt-1">
+                {foundCard.prices.eur || foundCard.prices.usd || "0"}€
+              </p>
               <Button size="sm" onClick={() => handleAddCardInternal(foundCard)} className="mt-2 w-full h-8 text-xs bg-primary">
                 <Plus className="h-3 w-3 mr-1" /> Añadir a mi lista
               </Button>
@@ -217,14 +224,14 @@ export function QuickActions({ onAddCard }: QuickActionsProps) {
         </Card>
       )}
 
-      {/* BUSCADOR CON AUTOCOMPLETADO */}
+      {/* BUSCADOR */}
       {searchOpen && (
         <div className="relative animate-in slide-in-from-top-2 duration-200">
           <Input
             ref={inputRef}
             value={searchQuery}
             onChange={handleSearchChange}
-            placeholder="Type and wait..."
+            placeholder="Escribe el nombre de la carta..."
             className="h-14 border-primary bg-card"
           />
           {suggestions.length > 0 && (
@@ -253,7 +260,7 @@ export function QuickActions({ onAddCard }: QuickActionsProps) {
         </div>
       )}
 
-      {/* IMPORT WANTS LIST */}
+      {/* IMPORT LIST */}
       <Card className="border-border bg-card overflow-hidden">
         <CardContent className="p-0">
           <button
@@ -266,12 +273,11 @@ export function QuickActions({ onAddCard }: QuickActionsProps) {
               </div>
               <div>
                 <p className="text-sm font-semibold text-foreground">Import Wants List</p>
-                <p className="text-xs text-muted-foreground">Paste a list of card names</p>
+                <p className="text-xs text-muted-foreground">Pega una lista de nombres</p>
               </div>
             </div>
             <FileText className={cn("h-4 w-4 text-muted-foreground transition-transform", importOpen && "rotate-180")} />
           </button>
-
           {importOpen && (
             <div className="border-t border-border p-4 space-y-3">
               <Textarea
