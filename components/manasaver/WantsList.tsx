@@ -116,89 +116,56 @@ function CardRow({ card, onQtyChange, onDelete }: {
       "group flex items-center gap-3 py-3 border-b border-border last:border-0 transition-all duration-500",
       card.isNew && "animate-in fade-in slide-in-from-top-2 bg-savings/10 rounded-lg px-2 -mx-2 ring-1 ring-savings/30"
     )}>
-      {/* Card image with mana icons */}
-      <div className="relative h-12 w-9 flex-shrink-0 rounded-lg bg-secondary ring-1 ring-border overflow-hidden">
+      {/* Foto Limpia */}
+      <div className="relative h-12 w-9 flex-shrink-0 rounded-md bg-secondary ring-1 ring-border overflow-hidden">
         {card.imageUrl ? (
-          <img
-            src={card.imageUrl}
-            alt={card.name}
-            className="h-full w-full object-cover"
-          />
+          <img src={card.imageUrl} alt={card.name} className="h-full w-full object-cover" />
         ) : (
-          <div className="h-full w-full bg-gradient-to-br from-secondary to-muted flex items-center justify-center">
-            <span className="text-[7px] font-bold text-muted-foreground uppercase">{card.set}</span>
-          </div>
-        )}
-        {/* Mana icons overlay */}
-        {card.manaColors && card.manaColors.length > 0 && (
-          <div className="absolute -bottom-0.5 -right-0.5">
-            <ManaIcons colors={card.manaColors} size="sm" />
-          </div>
-        )}
-        {/* New flash indicator */}
-        {card.isNew && (
-          <div className="absolute inset-0 flex items-center justify-center bg-savings/20 animate-pulse">
-            <Sparkles className="h-4 w-4 text-savings" />
-          </div>
+          <div className="h-full w-full bg-muted flex items-center justify-center text-[8px] text-muted-foreground uppercase">{card.set}</div>
         )}
       </div>
 
-      {/* Name & Set */}
+      {/* Info Central + Manás Fuera */}
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
-          <p className="truncate text-sm font-semibold text-foreground">{card.name}</p>
-          {card.isNew && (
-            <Badge className="bg-savings/20 text-savings border-savings/30 text-[9px] px-1 py-0 h-4">
-              NEW
-            </Badge>
-          )}
+        <div className="flex items-center gap-2">
+          <p className="truncate text-sm font-bold text-foreground">{card.name}</p>
+          {/* Manás ahora se ven perfectamente aquí */}
+          {card.manaColors && <ManaIcons colors={card.manaColors} size="sm" />}
         </div>
         <div className="flex items-center gap-1.5 mt-0.5">
-          <Badge variant="outline" className={cn("h-4 px-1 py-0 text-[9px] font-bold border", RARITY_COLORS[card.rarity])}>
+          <Badge variant="outline" className={cn("h-4 px-1 py-0 text-[9px] font-bold", RARITY_COLORS[card.rarity])}>
             {card.set}
           </Badge>
-          <span className="text-[11px] text-muted-foreground truncate">{card.setFull}</span>
+          {/* Botón individual de Cardmarket */}
+          {card.cardmarketUrl && (
+            <a
+              href={card.cardmarketUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-muted-foreground hover:text-primary transition-colors"
+            >
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          )}
         </div>
       </div>
 
-      {/* Qty spinner */}
-      <div className="flex items-center gap-1">
-        <button
-          onClick={() => onQtyChange(card.id, Math.max(1, card.qty - 1))}
-          className="flex h-6 w-6 items-center justify-center rounded bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
-        >
-          <ChevronDown className="h-3.5 w-3.5" />
-        </button>
-        <span className="w-6 text-center text-sm font-bold text-foreground tabular-nums">{card.qty}</span>
-        <button
-          onClick={() => onQtyChange(card.id, card.qty + 1)}
-          className="flex h-6 w-6 items-center justify-center rounded bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
-        >
-          <ChevronUp className="h-3.5 w-3.5" />
-        </button>
+      {/* Selector de cantidad (Spinner) */}
+      <div className="flex items-center gap-1 bg-secondary/50 rounded-lg p-0.5">
+        <button onClick={() => onQtyChange(card.id, Math.max(1, card.qty - 1))} className="p-1 hover:text-primary"><ChevronDown className="h-3 w-3" /></button>
+        <span className="w-4 text-center text-xs font-bold tabular-nums">{card.qty}</span>
+        <button onClick={() => onQtyChange(card.id, card.qty + 1)} className="p-1 hover:text-primary"><ChevronUp className="h-3 w-3" /></button>
       </div>
 
-      {/* Price per unit + Row total */}
-      <div className="text-right min-w-[85px]">
-        <p className="text-sm font-bold text-foreground tabular-nums">
-          €{rowTotal.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-        </p>
-        <div className="flex items-center justify-end gap-1">
-          <span className="text-[10px] text-muted-foreground">
-            @€{card.price.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </span>
-          <span className={cn("text-[10px] font-medium", card.priceChange >= 0 ? "text-up" : "text-down")}>
-            {card.priceChange >= 0 ? "+" : ""}{card.priceChange}%
-          </span>
-        </div>
+      {/* Precio Final */}
+      <div className="text-right min-w-[70px]">
+        <p className="text-sm font-extrabold text-foreground">€{rowTotal.toFixed(2)}</p>
+        <p className="text-[10px] text-muted-foreground">@€{card.price.toFixed(2)}</p>
       </div>
 
-      {/* Delete */}
-      <button
-        onClick={() => onDelete(card.id)}
-        className="ml-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive transition-all"
-      >
-        <Trash2 className="h-3.5 w-3.5" />
+      {/* Borrar */}
+      <button onClick={() => onDelete(card.id)} className="p-2 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+        <Trash2 className="h-4 w-4" />
       </button>
     </div>
   )
@@ -362,9 +329,20 @@ export function WantsList({ cards = [], onQtyChange, onDelete, onClearAll }: Wan
               </div>
             </div>
 
-            <Button onClick={handleExport} variant="outline" className="w-full gap-2 border-primary/30 text-primary hover:bg-primary/5">
-              {copied ? <Check className="h-4 w-4" /> : <Download className="h-4 w-4" />}
-              {copied ? "Copied to Clipboard!" : "Export for Cardmarket"}
+            {/* Botón de Acción Único en el Summary */}
+            <Button
+              onClick={() => {
+                const text = cards.map(c => `${c.qty}x ${c.name}`).join("\n");
+                navigator.clipboard.writeText(text);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+                window.open("https://www.cardmarket.com/en/Magic/Wants/WantsListImport", "_blank");
+              }}
+              className="w-full h-12 gap-2 bg-gradient-to-r from-amber-500 to-amber-600 text-amber-950 font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:scale-[1.01] active:scale-95 transition-all"
+            >
+              <ShoppingCart className="h-5 w-5" />
+              {copied ? "List Copied! Opening..." : "Buy All: Copy & Go to Market"}
+              <ExternalLink className="h-4 w-4 opacity-50" />
             </Button>
 
             {stats.mostExpensiveCardUrl && (
