@@ -79,7 +79,6 @@ export function QuickActions({ onAddCard }: QuickActionsProps) {
       return
     }
 
-    // Ajuste de la zona de captura
     const sw = video.videoWidth * 0.8
     const sh = video.videoHeight * 0.12
     const sx = (video.videoWidth - sw) / 2
@@ -92,8 +91,7 @@ export function QuickActions({ onAddCard }: QuickActionsProps) {
     try {
       const result = await Tesseract.recognize(canvas, 'eng')
 
-      // USAMOS SOLO JOIN COMO PEDISTE:
-      // Convertimos las líneas en una sola frase y quitamos espacios sobrantes
+      // Limpieza simple con join sin replace conflictivo
       const cleanedName = (result.data.text || "").split('\n').join(' ').trim()
 
       console.log("OCR Result:", cleanedName)
@@ -127,18 +125,23 @@ export function QuickActions({ onAddCard }: QuickActionsProps) {
   }
 
   const handleAddCardInternal = useCallback((card: ScryfallCard) => {
-    // Evitamos el N/A buscando el mejor precio disponible (EUR > USD > 0)
-    const bestPrice = card.prices.eur
-      ? parseFloat(card.prices.eur)
-      : card.prices.usd
-        ? parseFloat(card.prices.usd)
-        : 0
+    // LÓGICA DE PRECIO EN CASCADA (Evita los 0,00€)
+    const getBestPrice = () => {
+      const p = card.prices;
+      if (p.eur) return parseFloat(p.eur);
+      if (p.usd) return parseFloat(p.usd);
+      if (p.eur_foil) return parseFloat(p.eur_foil);
+      if (p.usd_foil) return parseFloat(p.usd_foil);
+      return 0;
+    };
+
+    const finalPrice = getBestPrice();
 
     onAddCard({
       name: card.name,
       set: (card.set || "UNK").toUpperCase(),
       setFull: card.set_name || "Unknown Set",
-      price: bestPrice,
+      price: finalPrice,
       rarity: mapRarity(card.rarity),
       manaColors: extractManaColors(card),
       imageUrl: getCardImageUrl(card, "small") || undefined,
@@ -155,7 +158,6 @@ export function QuickActions({ onAddCard }: QuickActionsProps) {
     <section className="space-y-3">
       <canvas ref={canvasRef} className="hidden" />
 
-      {/* Botones principales */}
       <div className="grid grid-cols-2 gap-3">
         <Button
           size="lg"
@@ -182,7 +184,6 @@ export function QuickActions({ onAddCard }: QuickActionsProps) {
         </div>
       </div>
 
-      {/* VISOR DE CÁMARA */}
       {cameraOpen && (
         <Card className="relative overflow-hidden aspect-[3/4] bg-black rounded-xl border-2 border-primary/50 animate-in fade-in duration-300">
           <video ref={videoRef} autoPlay playsInline className="absolute inset-0 w-full h-full object-cover" />
@@ -203,7 +204,6 @@ export function QuickActions({ onAddCard }: QuickActionsProps) {
         </Card>
       )}
 
-      {/* RESULTADO ESCÁNER */}
       {foundCard && (
         <Card className="p-3 border-primary bg-card/50 backdrop-blur-sm animate-in zoom-in duration-200">
           <div className="flex gap-4 items-center">
@@ -211,7 +211,7 @@ export function QuickActions({ onAddCard }: QuickActionsProps) {
             <div className="flex-1">
               <h3 className="font-bold text-sm leading-tight">{foundCard.name}</h3>
               <p className="text-xl font-black text-primary mt-1">
-                {foundCard.prices.eur || foundCard.prices.usd || "0"}€
+                {foundCard.prices.eur || foundCard.prices.usd || foundCard.prices.eur_foil || "0"}€
               </p>
               <Button size="sm" onClick={() => handleAddCardInternal(foundCard)} className="mt-2 w-full h-8 text-xs bg-primary">
                 <Plus className="h-3 w-3 mr-1" /> Añadir a mi lista
@@ -224,7 +224,6 @@ export function QuickActions({ onAddCard }: QuickActionsProps) {
         </Card>
       )}
 
-      {/* BUSCADOR */}
       {searchOpen && (
         <div className="relative animate-in slide-in-from-top-2 duration-200">
           <Input
@@ -260,7 +259,6 @@ export function QuickActions({ onAddCard }: QuickActionsProps) {
         </div>
       )}
 
-      {/* IMPORT LIST */}
       <Card className="border-border bg-card overflow-hidden">
         <CardContent className="p-0">
           <button
