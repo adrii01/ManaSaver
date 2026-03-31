@@ -344,14 +344,6 @@ export function WantsList({ cards = [], onQtyChange, onDelete, onClearAll }: Wan
               {copied ? "List Copied! Opening..." : "Buy All: Copy & Go to Market"}
               <ExternalLink className="h-4 w-4 opacity-50" />
             </Button>
-
-            {stats.mostExpensiveCardUrl && (
-              <a href={stats.mostExpensiveCardUrl} target="_blank" rel="noopener noreferrer"
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-bold bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-amber-950 hover:brightness-110 transition-all shadow-md shadow-amber-500/10">
-                <ShoppingCart className="h-5 w-5" /> Buy Optimized Lot
-                <ExternalLink className="h-3.5 w-3.5 opacity-50" />
-              </a>
-            )}
           </CardContent>
         </Card>
       )}
