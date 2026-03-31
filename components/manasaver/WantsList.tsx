@@ -217,8 +217,12 @@ export function WantsList({ cards = [], onQtyChange, onDelete, onClearAll }: Wan
   useEffect(() => {
     setIsMounted(true)
   }, [])
-  const totalCards = cards.reduce((sum, c) => sum + c.qty, 0)
-  const totalValue = cards.reduce((sum, c) => sum + (Number(c.price) || 0) * c.qty, 0)
+  const totalCards = cards.reduce((sum, c) => sum + (c.qty || 0), 0)
+  const totalValue = cards.reduce((sum, c) => {
+    const price = Number(c.price) || 0
+    const qty = Number(c.qty) || 0
+    return sum + (price * qty)
+  }, 0)
 
   // Calculate unicorn seller deal
   const unicornDeal = useMemo(() => calculateBestDeal(cards), [cards])
