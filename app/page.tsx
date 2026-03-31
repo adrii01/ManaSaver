@@ -59,40 +59,44 @@ export default function ManaSaverDashboard() {
     imageUrl?: string
     cardmarketUrl?: string
   }) => {
-    const existingIndex = cards.findIndex(c =>
-      c.name.toLowerCase() === card.name.toLowerCase() &&
-      c.set.toLowerCase() === card.set.toLowerCase()
-    )
+    setCards(prev => {
+      const existingIndex = prev.findIndex(c =>
+        c.name.toLowerCase() === card.name.toLowerCase() &&
+        c.set.toLowerCase() === card.set.toLowerCase()
+      )
 
-    if (existingIndex >= 0) {
-      setCards(prev => prev.map((c, i) =>
-        i === existingIndex
-          ? { ...c, qty: c.qty + 1, isNew: true, imageUrl: card.imageUrl || c.imageUrl, cardmarketUrl: card.cardmarketUrl || c.cardmarketUrl }
-          : { ...c, isNew: false }
-      ))
-    } else {
-      const newCard: WantCard = {
-        id: Date.now(), // Usamos timestamp para que el ID sea único siempre
-        name: card.name,
-        set: card.set,
-        setFull: card.setFull,
-        qty: 1,
-        price: card.price,
-        priceChange: Math.round((Math.random() * 6 - 2) * 10) / 10,
-        rarity: card.rarity,
-        manaColors: card.manaColors,
-        imageUrl: card.imageUrl,
-        cardmarketUrl: card.cardmarketUrl,
-        isNew: true,
+      if (existingIndex >= 0) {
+        // Si la carta ya existe, sumamos 1 a la cantidad
+        return prev.map((c, i) =>
+          i === existingIndex
+            ? { ...c, qty: c.qty + 1, isNew: true, imageUrl: card.imageUrl || c.imageUrl }
+            : { ...c, isNew: false }
+        )
+      } else {
+        // Si es nueva, la añadimos arriba
+        const newCard: WantCard = {
+          id: Date.now(),
+          name: card.name,
+          set: card.set,
+          setFull: card.setFull,
+          qty: 1,
+          price: Number(card.price) || 0, // <--- Seguridad extra
+          priceChange: Math.round((Math.random() * 6 - 2) * 10) / 10,
+          rarity: card.rarity,
+          manaColors: card.manaColors,
+          imageUrl: card.imageUrl,
+          cardmarketUrl: card.cardmarketUrl,
+          isNew: true,
+        }
+        return [newCard, ...prev.map(c => ({ ...c, isNew: false }))]
       }
-      setCards(prev => [newCard, ...prev.map(c => ({ ...c, isNew: false }))])
-    }
+    })
 
-    // Quitamos el efecto de "nuevo" tras 2 segundos
+    // Quitar el brillo de "nuevo" tras 2 segundos
     setTimeout(() => {
-      setCards(prev => prev.map(c => ({ ...c, isNew: false })))
+      setCards(current => current.map(c => ({ ...c, isNew: false })))
     }, 2000)
-  }, [cards])
+  }, []) // <--- Ahora es más eficiente porque no depende de [cards]
 
   return (
     <div className="min-h-screen flex flex-col bg-background">

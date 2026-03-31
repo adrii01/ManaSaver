@@ -6,8 +6,36 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { ManaIcons } from "./ManaIcons"
 import { cn } from "@/lib/utils"
+
+const MANA_COLORS: Record<string, string> = {
+  W: "bg-[#f8f6d8] text-[#0d0d0d]", // Blanco
+  U: "bg-[#0e68ab] text-white",     // Azul
+  B: "bg-[#150b00] text-white",     // Negro
+  R: "bg-[#d3202a] text-white",     // Rojo
+  G: "bg-[#00733e] text-white",     // Verde
+  C: "bg-[#90adbb] text-white",     // Incoloro
+}
+
+function ManaIcons({ colors, size = "md" }: { colors: string[], size?: "sm" | "md" }) {
+  return (
+    <div className="flex -space-x-1">
+      {colors?.map((color, i) => (
+        <div
+          key={i}
+          className={cn(
+            "rounded-full border border-black/20 flex items-center justify-center font-bold uppercase shadow-sm",
+            MANA_COLORS[color] || "bg-slate-500",
+            size === "sm" ? "h-3 w-3 text-[6px]" : "h-4 w-4 text-[8px]"
+          )}
+        >
+          {color}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 
 export type WantCard = {
   id: number
@@ -65,7 +93,7 @@ function calculateBestDeal(cards: WantCard[]): {
   const sellerName = UNICORN_SELLERS[Math.floor(Math.random() * UNICORN_SELLERS.length)]
   const cardsWithSeller = Math.ceil(cards.length * 0.8)
   const cardsWithoutSeller = cards.length - cardsWithSeller
-  
+
   // Calculate shipping savings: 2.50€ per avoided shipment
   // Without unicorn: each card might need separate shipment
   // With unicorn: most cards in 1 shipment
@@ -94,7 +122,7 @@ function generateCardmarketExport(cards: WantCard[]): string {
 // Get URL of the most expensive card in the list
 function getMostExpensiveCardUrl(cards: WantCard[]): string | null {
   if (cards.length === 0) return null
-  
+
   const sorted = [...cards].sort((a, b) => (b.price * b.qty) - (a.price * a.qty))
   return sorted[0]?.cardmarketUrl || null
 }
@@ -209,16 +237,20 @@ interface WantsListProps {
 
 export function WantsList({ cards = [], onQtyChange, onDelete, onClearAll }: WantsListProps) {
   const [copied, setCopied] = useState(false)
-  
-  const totalCards = cards.reduce((sum, c) => sum + c.qty, 0)
-  const totalValue = cards.reduce((sum, c) => sum + c.price * c.qty, 0)
-  
+
+  const { totalCards, totalValue } = useMemo(() => {
+    return {
+      totalCards: cards.reduce((sum, c) => sum + (c.qty || 0), 0),
+      totalValue: cards.reduce((sum, c) => sum + (Number(c.price || 0) * (c.qty || 0)), 0)
+    }
+  }, [cards])
+
   // Calculate unicorn seller deal
   const unicornDeal = useMemo(() => calculateBestDeal(cards), [cards])
-  
+
   // Get URL for "Buy Optimized Lot" button (most expensive card)
   const mostExpensiveCardUrl = useMemo(() => getMostExpensiveCardUrl(cards), [cards])
-  
+
   // Calculate savings: 10% base + shipping savings from unicorn
   const baseSavingsPercent = 10
   const cardmarketTotal = totalValue / (1 - baseSavingsPercent / 100)
@@ -357,18 +389,7 @@ export function WantsList({ cards = [], onQtyChange, onDelete, onClearAll }: Wan
                   €{(cardmarketTotal + unicornDeal.shippingSaved).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
-              
-              <div className="relative">
-                <Progress 
-                  value={100 - totalSavingsPercent} 
-                  className="h-3 bg-secondary [&>[data-slot=indicator]]:bg-gradient-to-r [&>[data-slot=indicator]]:from-savings [&>[data-slot=indicator]]:to-primary"
-                />
-                <div 
-                  className="absolute right-0 top-0 h-3 bg-savings/30 rounded-r-full"
-                  style={{ width: `${totalSavingsPercent}%` }}
-                />
-              </div>
-              
+
               <div className="flex items-center justify-between text-xs">
                 <span className="text-savings font-medium">Your Total Savings</span>
                 <span className="text-savings font-bold">
