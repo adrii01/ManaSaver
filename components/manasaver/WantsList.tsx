@@ -218,13 +218,19 @@ export function WantsList({ cards = [], onQtyChange, onDelete, onClearAll }: Wan
     setIsMounted(true)
   }, [])
 
-  const totalCards = cards.reduce((sum, c) => sum + (Number(c.qty) || 0), 0)
+  const { totalCards, totalValue } = useMemo(() => {
+    let tCards = 0;
+    let tValue = 0;
 
-  const totalValue = cards.reduce((sum, c) => {
-    const p = Number(c.price) || 0
-    const q = Number(c.qty) || 0
-    return sum + (p * q)
-  }, 0)
+    cards.forEach(c => {
+      const q = Number(c.qty) || 0;
+      const p = Number(c.price) || 0;
+      tCards += q;
+      tValue += (p * q);
+    });
+
+    return { totalCards: tCards, totalValue: tValue };
+  }, [cards]); // <--- ESTO es lo que obliga a actualizar
 
   // Calculate unicorn seller deal
   const unicornDeal = useMemo(() => calculateBestDeal(cards), [cards])
@@ -237,7 +243,9 @@ export function WantsList({ cards = [], onQtyChange, onDelete, onClearAll }: Wan
   const cardmarketTotal = totalValue / (1 - baseSavingsPercent / 100)
   const baseSavings = cardmarketTotal - totalValue
   const totalSavings = baseSavings + unicornDeal.shippingSaved
-  const totalSavingsPercent = totalValue > 0 ? Math.round((totalSavings / (totalValue + totalSavings)) * 100) : 0
+  const totalSavingsPercent = totalValue > 0
+    ? Math.round((totalSavings / (totalValue + totalSavings)) * 100)
+    : 0;
 
   // Handle export to Cardmarket
   const handleExport = async () => {
