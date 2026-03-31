@@ -325,22 +325,23 @@ export function WantsList({ cards = [], onQtyChange, onDelete, onClearAll }: Wan
         <Card className="border-savings/30 bg-savings/5 overflow-hidden shadow-sm">
           <CardHeader className="pb-2 pt-4 px-4">
             <CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
-              Summary <Badge className="bg-savings/20 text-savings border-savings/30">{stats.totalSavingsPercent}% OFF</Badge>
+              Summary
+              <Badge key={`badge-${stats.totalSavingsPercent}`} className="bg-savings/20 text-savings border-savings/30">
+                {stats.totalSavingsPercent}% OFF
+              </Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4 space-y-4">
             <div className="grid grid-cols-2 gap-2 text-sm">
-              <span className="text-muted-foreground">Unique Items</span>
-              <span className="text-right font-medium">{cards.length}</span>
+              <span className="text-muted-foreground">Total Cards</span>
+              {/* Usamos una KEY para obligar a React a repintar el número si cambia */}
+              <span key={`qty-${stats.totalCards}`} className="text-right font-bold tabular-nums">
+                {stats.totalCards}
+              </span>
 
-              <span className="text-muted-foreground">Total Units (Qty)</span>
-              <span className="text-right font-medium">{stats.totalCards}</span>
-
-              <div className="col-span-2 my-1 border-t border-border/50" />
-
-              <span className="text-foreground font-bold">Total Value</span>
-              <span className="text-right font-bold text-lg tabular-nums text-primary">
-                €{stats.totalValue.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <span className="text-muted-foreground">Our Price</span>
+              <span key={`val-${stats.totalValue}`} className="text-right font-bold text-lg tabular-nums text-foreground">
+                €{Number(stats.totalValue).toFixed(2).replace('.', ',')}
               </span>
             </div>
 
@@ -356,7 +357,7 @@ export function WantsList({ cards = [], onQtyChange, onDelete, onClearAll }: Wan
               </div>
               <div className="text-right">
                 <span className="text-2xl font-extrabold text-savings tabular-nums">
-                  €{stats.totalSavings.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  €{Number(stats.totalSavings).toFixed(2).replace('.', ',')}
                 </span>
               </div>
             </div>
