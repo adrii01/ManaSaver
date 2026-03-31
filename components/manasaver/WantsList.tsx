@@ -330,10 +330,16 @@ export function WantsList({ cards = [], onQtyChange, onDelete, onClearAll }: Wan
           </CardHeader>
           <CardContent className="px-4 pb-4 space-y-4">
             <div className="grid grid-cols-2 gap-2 text-sm">
-              <span className="text-muted-foreground">Total Cards</span>
-              <span className="text-right font-bold tabular-nums">{stats.totalCards}</span>
-              <span className="text-muted-foreground">Our Price</span>
-              <span className="text-right font-bold text-lg tabular-nums">
+              <span className="text-muted-foreground">Unique Items</span>
+              <span className="text-right font-medium">{cards.length}</span>
+
+              <span className="text-muted-foreground">Total Units (Qty)</span>
+              <span className="text-right font-medium">{stats.totalCards}</span>
+
+              <div className="col-span-2 my-1 border-t border-border/50" />
+
+              <span className="text-foreground font-bold">Total Value</span>
+              <span className="text-right font-bold text-lg tabular-nums text-primary">
                 €{stats.totalValue.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
