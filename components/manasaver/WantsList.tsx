@@ -220,7 +220,14 @@ export function WantsList({ cards = [], onQtyChange, onDelete, onClearAll }: Wan
   }, [])
 
   // MOTOR DE CÁLCULOS UNIFICADO: Si cards cambia, todo esto se refresca
+  // MOTOR DE CÁLCULOS CON DEBUG
   const stats = useMemo(() => {
+    // --- DEBUG START ---
+    console.group("🔄 Recalculando WantsList");
+    console.log("Cartas actuales en el array:", cards.length);
+    console.table(cards.map(c => ({ name: c.name, qty: c.qty, price: c.price })));
+    // --- DEBUG END ---
+
     const tCards = cards.reduce((acc, c) => acc + (Number(c.qty) || 0), 0);
     const tValue = cards.reduce((acc, c) => acc + ((Number(c.price) || 0) * (Number(c.qty) || 0)), 0);
 
@@ -231,6 +238,10 @@ export function WantsList({ cards = [], onQtyChange, onDelete, onClearAll }: Wan
     const cktTotal = tValue / (1 - baseSavingsPercent / 100);
     const tSavings = (cktTotal - tValue) + (uDeal.shippingSaved || 0);
     const tSavingsPercent = tValue > 0 ? Math.round((tSavings / (tValue + tSavings)) * 100) : 0;
+
+    // --- DEBUG RESULT ---
+    console.log("Resultado final:", { tCards, tValue, tSavingsPercent });
+    console.groupEnd();
 
     return {
       totalCards: tCards,
