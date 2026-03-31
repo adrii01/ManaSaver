@@ -6,36 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import { ManaIcons } from "./ManaIcons"
 import { cn } from "@/lib/utils"
-
-const MANA_COLORS: Record<string, string> = {
-  W: "bg-[#f8f6d8] text-[#0d0d0d]", // Blanco
-  U: "bg-[#0e68ab] text-white",     // Azul
-  B: "bg-[#150b00] text-white",     // Negro
-  R: "bg-[#d3202a] text-white",     // Rojo
-  G: "bg-[#00733e] text-white",     // Verde
-  C: "bg-[#90adbb] text-white",     // Incoloro
-}
-
-function ManaIcons({ colors, size = "md" }: { colors: string[], size?: "sm" | "md" }) {
-  return (
-    <div className="flex -space-x-1">
-      {colors?.map((color, i) => (
-        <div
-          key={i}
-          className={cn(
-            "rounded-full border border-black/20 flex items-center justify-center font-bold uppercase shadow-sm",
-            MANA_COLORS[color] || "bg-slate-500",
-            size === "sm" ? "h-3 w-3 text-[6px]" : "h-4 w-4 text-[8px]"
-          )}
-        >
-          {color}
-        </div>
-      ))}
-    </div>
-  )
-}
-
 
 export type WantCard = {
   id: number
@@ -238,12 +210,8 @@ interface WantsListProps {
 export function WantsList({ cards = [], onQtyChange, onDelete, onClearAll }: WantsListProps) {
   const [copied, setCopied] = useState(false)
 
-  const { totalCards, totalValue } = useMemo(() => {
-    return {
-      totalCards: cards.reduce((sum, c) => sum + (c.qty || 0), 0),
-      totalValue: cards.reduce((sum, c) => sum + (Number(c.price || 0) * (c.qty || 0)), 0)
-    }
-  }, [cards])
+  const totalCards = cards.reduce((sum, c) => sum + c.qty, 0)
+  const totalValue = cards.reduce((sum, c) => sum + c.price * c.qty, 0)
 
   // Calculate unicorn seller deal
   const unicornDeal = useMemo(() => calculateBestDeal(cards), [cards])
@@ -388,6 +356,17 @@ export function WantsList({ cards = [], onQtyChange, onDelete, onClearAll }: Wan
                 <span className="text-muted-foreground line-through">
                   €{(cardmarketTotal + unicornDeal.shippingSaved).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
+              </div>
+
+              <div className="relative">
+                <Progress
+                  value={100 - totalSavingsPercent}
+                  className="h-3 bg-secondary [&>[data-slot=indicator]]:bg-gradient-to-r [&>[data-slot=indicator]]:from-savings [&>[data-slot=indicator]]:to-primary"
+                />
+                <div
+                  className="absolute right-0 top-0 h-3 bg-savings/30 rounded-r-full"
+                  style={{ width: `${totalSavingsPercent}%` }}
+                />
               </div>
 
               <div className="flex items-center justify-between text-xs">
