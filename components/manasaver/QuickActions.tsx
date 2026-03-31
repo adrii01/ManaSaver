@@ -90,7 +90,7 @@ export function QuickActions({ onAddCard }: QuickActionsProps) {
     try {
       const { data: { text } } = await Tesseract.recognize(canvas, 'eng')
       // Limpiamos el texto para quedarnos solo con letras y espacios (evita símbolos raros)
-      const cleanedName = text.split('\n').replace(/[^a-zA-Z ]/g, "").trim()
+      const cleanedName = text.split('\n').join(' ').replace(/[^a-zA-Z ]/g, "").trim()
 
       console.log("OCR Result:", cleanedName)
 
