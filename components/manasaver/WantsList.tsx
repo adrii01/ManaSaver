@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Trash2, TrendingUp, Package, Zap, ChevronDown, ChevronUp, Sparkles, Truck, Store, Copy, Check, Download, ShoppingCart, ExternalLink } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -93,9 +93,14 @@ function generateCardmarketExport(cards: WantCard[]): string {
 
 // Get URL of the most expensive card in the list
 function getMostExpensiveCardUrl(cards: WantCard[]): string | null {
-  if (cards.length === 0) return null
+  if (!cards || cards.length === 0) return null
 
-  const sorted = [...cards].sort((a, b) => (b.price * b.qty) - (a.price * a.qty))
+  const sorted = [...cards].sort((a, b) => {
+    const totalA = (Number(a.price) || 0) * (a.qty || 1)
+    const totalB = (Number(b.price) || 0) * (b.qty || 1)
+    return totalB - totalA
+  })
+
   return sorted[0]?.cardmarketUrl || null
 }
 
@@ -104,7 +109,7 @@ function CardRow({ card, onQtyChange, onDelete }: {
   onQtyChange: (id: number, qty: number) => void
   onDelete: (id: number) => void
 }) {
-  const rowTotal = card.price * card.qty
+  const rowTotal = (Number(card.price) || 0) * card.qty
 
   return (
     <div className={cn(
@@ -118,7 +123,6 @@ function CardRow({ card, onQtyChange, onDelete }: {
             src={card.imageUrl}
             alt={card.name}
             className="h-full w-full object-cover"
-            crossOrigin="anonymous"
           />
         ) : (
           <div className="h-full w-full bg-gradient-to-br from-secondary to-muted flex items-center justify-center">
@@ -209,9 +213,12 @@ interface WantsListProps {
 
 export function WantsList({ cards = [], onQtyChange, onDelete, onClearAll }: WantsListProps) {
   const [copied, setCopied] = useState(false)
-
+  const [isMounted, setIsMounted] = useState(false)
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
   const totalCards = cards.reduce((sum, c) => sum + c.qty, 0)
-  const totalValue = cards.reduce((sum, c) => sum + c.price * c.qty, 0)
+  const totalValue = cards.reduce((sum, c) => sum + (Number(c.price) || 0) * c.qty, 0)
 
   // Calculate unicorn seller deal
   const unicornDeal = useMemo(() => calculateBestDeal(cards), [cards])
@@ -244,6 +251,9 @@ export function WantsList({ cards = [], onQtyChange, onDelete, onClearAll }: Wan
       URL.revokeObjectURL(url)
     }
   }
+
+  // Si no ha montado en el cliente, no mostramos nada (o un spinner) para evitar el error #418
+  if (!isMounted) return null
 
   return (
     <section className="space-y-3">
