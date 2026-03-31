@@ -10,7 +10,7 @@ import Tesseract from "tesseract.js"
 interface ScanModalProps {
   open: boolean
   onClose: () => void
-  onCardScanned: (card: { 
+  onCardScanned: (card: {
     name: string
     set: string
     setFull: string
@@ -29,7 +29,7 @@ export function ScanModal({ open, onClose, onCardScanned }: ScanModalProps) {
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [cameraReady, setCameraReady] = useState(false)
   const [detectedText, setDetectedText] = useState<string>("")
-  
+
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -48,7 +48,7 @@ export function ScanModal({ open, onClose, onCardScanned }: ScanModalProps) {
       setOcrStatus("")
       setDetectedText("")
     }
-    
+
     return () => {
       stopCamera()
     }
@@ -64,9 +64,9 @@ export function ScanModal({ open, onClose, onCardScanned }: ScanModalProps) {
           height: { ideal: 720 },
         },
       })
-      
+
       streamRef.current = stream
-      
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream
         videoRef.current.onloadedmetadata = () => {
@@ -98,53 +98,65 @@ export function ScanModal({ open, onClose, onCardScanned }: ScanModalProps) {
     }
   }
 
-  // Extract potential card name from OCR text
   const extractCardName = (text: string): string => {
-    // Clean up OCR text - card names are usually at the top of the card
-    const lines = text.split("\n").filter(line => line.trim().length > 0)
-    
-    // Take first meaningful line (likely card name)
-    for (const line of lines) {
-      const cleaned = line.trim()
-        .replace(/[^a-zA-Z\s',\-]/g, "") // Keep letters, spaces, apostrophes, commas, hyphens
-        .replace(/\s+/g, " ")
-        .trim()
-      
-      // Card names are typically 2+ characters and contain letters
-      if (cleaned.length >= 2 && /[a-zA-Z]/.test(cleaned)) {
-        return cleaned
-      }
-    }
-    
-    return text.trim().substring(0, 50)
-  }
+    // 1. Dividimos el bloque en líneas
+    const lines = text.split("\n")
+      .map(l => l.trim())
+      .filter(l => l.length > 2);
+
+    // 2. Si no hay líneas, devolvemos vacío
+    if (lines.length === 0) return "";
+
+    // 3. LA SOLUCIÓN DEFINITIVA:
+    // Usamos [firstLine] para extraer el primer string del array.
+    // Esto garantiza a TypeScript que 'firstLine' es un STRING.
+    const [firstLine] = lines;
+
+    // 4. Ahora aplicamos la limpieza al string individual
+    const cleanedName = firstLine
+      .replace(/[^a-zA-Z\s',\-]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    return cleanedName;
+  };
 
   // Capture frame and process with real Tesseract OCR
   const handleScan = useCallback(async () => {
     if (!videoRef.current || !canvasRef.current) return
-    
+
     const video = videoRef.current
     const canvas = canvasRef.current
     const ctx = canvas.getContext("2d")
-    
+
     if (!ctx) return
-    
+
     setScanning(true)
     setOcrStatus("Leyendo hechizo...")
     setOcrProgress(0)
-    
+
     // Set canvas dimensions
-    canvas.width = video.videoWidth
-    canvas.height = video.videoHeight
-    
-    // Draw current video frame to canvas
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-    
-    // Get image data for OCR
-    const imageData = canvas.toDataURL("image/png")
-    
+    // --- MEJORA DE CAPTURA ---
+    // Usamos una resolución alta (1080p aprox) para que el texto sea nítido
+    canvas.width = 1080;
+    canvas.height = 1512; // Proporción perfecta de carta Magic (2.5x3.5)
+
+    // Calculamos el recorte para coger solo el centro del video (donde está el marco)
+    const sourceSize = Math.min(video.videoWidth, video.videoHeight);
+    const offsetX = (video.videoWidth - sourceSize) / 2;
+
+    ctx.drawImage(
+      video,
+      offsetX, 0, sourceSize, video.videoHeight, // Área de origen (sensor)
+      0, 0, canvas.width, canvas.height        // Área de destino (nuestro marco)
+    );
+
+    // Pasamos a JPEG con buena calidad para que el OCR trabaje mejor que con PNG
+    const imageData = canvas.toDataURL("image/jpeg", 0.8);
+    // --- FIN MEJORA ---
+
     console.log("Escaneando...")
-    
+
     try {
       // Run Tesseract OCR with progress tracking
       const result = await Tesseract.recognize(imageData, "eng", {
@@ -159,26 +171,26 @@ export function ScanModal({ open, onClose, onCardScanned }: ScanModalProps) {
           }
         },
       })
-      
+
       const extractedText = result.data.text
       console.log("OCR Result:", extractedText)
-      
+
       // Extract card name from OCR text
       const cardName = extractCardName(extractedText)
       setDetectedText(cardName)
       setOcrStatus("Buscando en Scryfall...")
-      
+
       if (cardName) {
         // Search Scryfall with the extracted name
         const card = await searchCardByName(cardName)
-        
+
         setScanning(false)
         setScanned(true)
-        
+
         setTimeout(() => {
           if (card) {
-            const price = card.prices.eur ? parseFloat(card.prices.eur) : 
-                         card.prices.usd ? parseFloat(card.prices.usd) * 0.92 : 1.0
+            const price = card.prices.eur ? parseFloat(card.prices.eur) :
+              card.prices.usd ? parseFloat(card.prices.usd) * 0.92 : 1.0
             onCardScanned({
               name: card.name,
               set: card.set.toUpperCase(),
@@ -213,13 +225,13 @@ export function ScanModal({ open, onClose, onCardScanned }: ScanModalProps) {
     } catch (error) {
       console.error("OCR Error:", error)
       setOcrStatus("Error en OCR")
-      
+
       // Fallback to demo card
       setTimeout(async () => {
         const card = await searchCardByName("Lightning Bolt")
         setScanning(false)
         setScanned(true)
-        
+
         setTimeout(() => {
           if (card) {
             const price = card.prices.eur ? parseFloat(card.prices.eur) : 1.5
@@ -244,11 +256,11 @@ export function ScanModal({ open, onClose, onCardScanned }: ScanModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div 
+      <div
         className="absolute inset-0 bg-background/90 backdrop-blur-sm"
         onClick={onClose}
       />
-      
+
       {/* Modal */}
       <div className="relative w-full max-w-sm mx-4 bg-card border border-border rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
@@ -259,7 +271,7 @@ export function ScanModal({ open, onClose, onCardScanned }: ScanModalProps) {
             </div>
             <div>
               <p className="text-sm font-bold text-foreground">Scan Card</p>
-              <p className="text-[11px] text-muted-foreground">Point camera at card name</p>
+              <p className="text-[11px] text-muted-foreground">Fit the entire card inside the frame</p>
             </div>
           </div>
           <button
@@ -301,10 +313,10 @@ export function ScanModal({ open, onClose, onCardScanned }: ScanModalProps) {
                   !cameraReady && "opacity-0"
                 )}
               />
-              
+
               {/* Hidden canvas for capturing frames */}
               <canvas ref={canvasRef} className="hidden" />
-              
+
               {/* Loading state while camera initializes */}
               {!cameraReady && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -314,7 +326,7 @@ export function ScanModal({ open, onClose, onCardScanned }: ScanModalProps) {
                   </div>
                 </div>
               )}
-              
+
               {/* Focus rectangle overlay */}
               <div className="absolute inset-6 flex items-center justify-center pointer-events-none">
                 <div className={cn(
@@ -327,12 +339,12 @@ export function ScanModal({ open, onClose, onCardScanned }: ScanModalProps) {
                   <div className="absolute -top-0.5 -right-0.5 w-6 h-6 border-t-2 border-r-2 border-primary rounded-tr-xl" />
                   <div className="absolute -bottom-0.5 -left-0.5 w-6 h-6 border-b-2 border-l-2 border-primary rounded-bl-xl" />
                   <div className="absolute -bottom-0.5 -right-0.5 w-6 h-6 border-b-2 border-r-2 border-primary rounded-br-xl" />
-                  
+
                   {/* Scanning line animation */}
                   {scanning && (
                     <div className="absolute inset-x-3 h-0.5 bg-gradient-to-r from-transparent via-primary to-transparent animate-scan" />
                   )}
-                  
+
                   {/* Center status */}
                   <div className="absolute inset-0 flex items-center justify-center">
                     {scanned ? (
@@ -351,7 +363,7 @@ export function ScanModal({ open, onClose, onCardScanned }: ScanModalProps) {
                           {ocrProgress > 0 && (
                             <div className="mt-2 w-32">
                               <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
-                                <div 
+                                <div
                                   className="h-full bg-primary transition-all duration-300 rounded-full"
                                   style={{ width: `${ocrProgress}%` }}
                                 />
@@ -363,8 +375,11 @@ export function ScanModal({ open, onClose, onCardScanned }: ScanModalProps) {
                       </div>
                     ) : cameraReady ? (
                       <div className="flex flex-col items-center gap-2">
-                        <div className="h-16 w-12 rounded border-2 border-dashed border-white/30 flex items-center justify-center bg-background/30">
-                          <span className="text-[10px] text-white/50">CARD</span>
+                        <div className="w-full aspect-[2.5/3.5] max-w-[240px] rounded-xl border-2 border-dashed border-white/40 flex items-center justify-center bg-primary/5 backdrop-blur-[2px]">
+                          <div className="flex flex-col items-center gap-2">
+                            <Scan className="h-8 w-8 text-white/20" />
+                            <span className="text-[10px] font-bold text-white/40 tracking-widest uppercase">Align Full Card</span>
+                          </div>
                         </div>
                         <span className="text-xs text-white/70 bg-background/50 px-2 py-1 rounded">Position card in frame</span>
                       </div>
@@ -384,8 +399,8 @@ export function ScanModal({ open, onClose, onCardScanned }: ScanModalProps) {
             disabled={scanning || scanned || !cameraReady || !!cameraError}
             className={cn(
               "w-full h-12 gap-2 font-semibold transition-all",
-              scanned 
-                ? "bg-savings text-savings-foreground" 
+              scanned
+                ? "bg-savings text-savings-foreground"
                 : "bg-primary text-primary-foreground shadow-[0_0_20px_oklch(0.72_0.16_195/0.25)] hover:shadow-[0_0_28px_oklch(0.72_0.16_195/0.4)]"
             )}
           >
