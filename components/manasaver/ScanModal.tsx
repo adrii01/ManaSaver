@@ -99,26 +99,19 @@ export function ScanModal({ open, onClose, onCardScanned }: ScanModalProps) {
   }
 
   const extractCardName = (text: string): string => {
-    // 1. Dividimos el bloque en líneas
-    const lines = text.split("\n")
-      .map(l => l.trim())
-      .filter(l => l.length > 2);
+    // 1. Dividimos y limpiamos. El resultado es un Array (string[])
+    const lines = text.split("\n").map(l => l.trim()).filter(l => l.length > 2);
 
-    // 2. Si no hay líneas, devolvemos vacío
+    // 2. Si no hay líneas, devolvemos un string vacío
     if (lines.length === 0) return "";
 
-    // 3. LA SOLUCIÓN DEFINITIVA:
-    // Usamos [firstLine] para extraer el primer string del array.
-    // Esto garantiza a TypeScript que 'firstLine' es un STRING.
-    const [firstLine] = lines;
-
-    // 4. Ahora aplicamos la limpieza al string individual
-    const cleanedName = firstLine
+    // 3. ESTA ES LA CLAVE: 
+    // Usamos lines directamente dentro del procesamiento.
+    // Al hacer esto, TypeScript sabe que el resultado es un STRING único.
+    return String(lines)
       .replace(/[^a-zA-Z\s',\-]/g, "")
       .replace(/\s+/g, " ")
       .trim();
-
-    return cleanedName;
   };
 
   // Capture frame and process with real Tesseract OCR
@@ -270,8 +263,8 @@ export function ScanModal({ open, onClose, onCardScanned }: ScanModalProps) {
               <Camera className="h-4 w-4 text-primary" />
             </div>
             <div>
-              <p className="text-sm font-bold text-foreground">Scan Card</p>
-              <p className="text-[11px] text-muted-foreground">Fit the entire card inside the frame</p>
+              <p className="text-sm font-bold text-foreground">Escáner de Cartas</p>
+              <p className="text-[11px] text-muted-foreground">Encuadra la carta completa en el marco</p>
             </div>
           </div>
           <button
@@ -381,7 +374,9 @@ export function ScanModal({ open, onClose, onCardScanned }: ScanModalProps) {
                             <span className="text-[10px] font-bold text-white/40 tracking-widest uppercase">Align Full Card</span>
                           </div>
                         </div>
-                        <span className="text-xs text-white/70 bg-background/50 px-2 py-1 rounded">Position card in frame</span>
+                        <span className="text-xs text-white/70 bg-background/50 px-2 py-1 rounded">
+                          Ajusta los bordes al recuadro
+                        </span>
                       </div>
                     ) : null}
                   </div>
